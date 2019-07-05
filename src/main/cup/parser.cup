@@ -1,0 +1,407 @@
+/*
+   Mozilla/[version] ([system and browser information]) [platform] ([platform details]) [extensions]. For example, Safari on the iPad has used the following:
+   Mozilla/5.0 (iPad; U; CPU OS 3_2_1 like Mac OS X; en-us) AppleWebKit/531.21.10 (KHTML, like Gecko) Mobile/7B405
+*/
+package com.dag.useragents;
+action code {:
+    boolean isApple = false;
+:};
+
+terminal Yytoken         DIV, LPAR, RPAR, DOT_COMMA, LPARS, RPARS, COMMA;
+terminal Yytoken         MOZILLA, DALVIK, OPERA, CPU ,OS ,LIKE ,MAC, WINDOWS, NT, MACINTOSH, IPHONE, PLAYSTATION, UNKNOWN, MSIE;
+terminal Yytoken         LINUX, ANDROID, TIZEN, BUILD, CHROME, TV, EKIOH, ROKU, VIAFREE, VIAPLAY, X11, IPAD, IPOD, WEBOS, UNIREST_JAVA, IOS, FREEBSD, VIERA, PHILIPS, LGE, NUC, SONY, CATEGORY;
+terminal Yytoken         LG, X64, X32, WIN64, WOW64, WIN32, DIRECTFB, BROWSER, SMART_TV, SMARTTV, APPLE_TV, CROS, XBOX, TVOS, XDKANDROIDWEBVIEW, GEMOBAPP_IOS, GLBMOBAPP_IOS, GSHOWMOBAPP_IOS, HBBTV;
+
+terminal Yytoken         APPLEWEBKIT, VERSION, MOBILE, SAFARI, GECKO, FIREFOX, CRKEY, MODEL;
+terminal Yytoken         ELECTRON, MOLOTOV, HARBOURFRONT, HLNAPP, DEVICEUID, NETCAST, WV, GEMIUSSDK;
+
+terminal Yytoken         LITERAL, LANGUAGE, CUSTOM, NUMBER, KINDER_MOZILLA;
+
+non terminal DeviceSummary   user_agent, extensions, custom_plugins;
+non terminal DeviceSummary   devices, extension, user_agent_common, platform_detail, platform_details;
+non terminal DeviceSummary   system_and_browser_information, system_and_browser_information_detail, system_and_browser_information_literal, system_and_browser_information_list;
+non terminal DeviceSummary   system_and_browser_information_extra_list, system_and_browser_information_extra_detail, platform_information;
+non terminal Yytoken literals_or_numbers, literals_or_numbers_empty, literals_or_numbers_detail, literals, numbers_empty;
+non terminal Yytoken complete_anything, custom_detail;
+non terminal DeviceSummary rubishs, rubishs_detail, rubishs_details;
+non terminal Yytoken system_and_browser_information_detail_end, numbers, vendors;
+
+precedence left DOT_COMMA, DIV, COMMA, LITERAL, NUMBER;
+
+
+user_agent ::=  custom_plugins:p
+                    {: RESULT = p; :}
+                | ANDROID:p
+                    {: RESULT = DeviceSummary.fromOs(p); :}
+                | UNKNOWN
+                    {: RESULT = new DeviceSummary(); :}
+                | MOZILLA DIV NUMBER user_agent_common:p
+                    {: RESULT = p; :}
+                | LITERAL MOZILLA DIV NUMBER user_agent_common:p
+                    {: RESULT = p; :}
+                | GEMIUSSDK DIV NUMBER user_agent_common:p
+                    {: RESULT = p; :}
+                | KINDER_MOZILLA:x DIV NUMBER user_agent_common:p
+                     {: RESULT = DeviceSummary.fromType(x.change("tablet")).setVendor(x.change("amazon")).apply(p); :}
+                | OPERA DIV NUMBER user_agent_common:p
+                    {: RESULT = p; :}
+                | DALVIK:x DIV NUMBER user_agent_common:p
+                    {: RESULT = DeviceSummary.fromOs(x.change("android")).setType(x.change("mobile").notsure()).apply(p); :}
+                | error
+                ;
+
+user_agent_common ::= system_and_browser_information:p extensions:e
+                    {: RESULT = p != null ? p.apply(e) : e; :}
+
+                ;
+
+system_and_browser_information ::= LPAR system_and_browser_information_list:p RPAR
+                                    {: RESULT = p; :}
+                                ;
+
+system_and_browser_information_extra_list ::=  system_and_browser_information_extra_detail system_and_browser_information_extra_list
+                                    | system_and_browser_information_extra_detail
+                                ;
+
+system_and_browser_information_extra_detail ::= LITERAL | NUMBER | LITERAL DIV NUMBER | DOT_COMMA | COMMA | PHILIPS | LPAR system_and_browser_information_extra_list RPAR
+                                ;
+
+system_and_browser_information_list ::=  system_and_browser_information_detail:p DOT_COMMA system_and_browser_information_list:q
+                                            {: RESULT = p != null ? p.apply(q) : q; :}
+                                    | system_and_browser_information_detail:p COMMA system_and_browser_information_list:q
+                                            {: RESULT = p != null ? p.apply(q) : q; :}
+                                    | system_and_browser_information_detail:p
+                                            {: RESULT = p; :}
+
+                                ;
+
+system_and_browser_information_detail ::= system_and_browser_information_literal:p
+                                        {: RESULT = p; :}
+                                | OPERA:x TV:y literals_or_numbers system_and_browser_information_detail_end:vmo
+                                        {:
+                                                RESULT = DeviceSummary.fromType(y);
+                                        :}
+                                | ANDROID:x TV:y literals_or_numbers:de2
+                                        {:
+                                                RESULT = DeviceSummary.fromType(y).setOs(x).setVersionOs(de2.sure());
+                                        :}
+                                | literals_or_numbers:de ANDROID:x TV:p literals_or_numbers:de2
+                                        {:
+                                                RESULT = DeviceSummary.fromType(p).setVendor(de).setOs(x).setVersionOs(de2.sure());
+                                        :}
+                                | literals_or_numbers:de system_and_browser_information_detail_end:vmo
+                                      {:
+                                        RESULT = DeviceSummary.fromModel(de).setVersionHw(vmo);
+                                      :}
+                                | LGE:l DOT_COMMA literals_or_numbers_detail:p
+                                    {: RESULT = DeviceSummary.fromVendor(l).setVersionOs(p.sure()); :}
+                                | literals_or_numbers:de
+                                      {:
+                                          RESULT = DeviceSummary.fromModel(de);
+                                      :}
+                                | HBBTV DIV NUMBER LPAR:x literals_or_numbers_empty:cap DOT_COMMA vendors:ven DOT_COMMA literals_or_numbers_empty:mo DOT_COMMA literals_or_numbers_empty:sov DOT_COMMA literals_or_numbers_empty:hwv DOT_COMMA system_and_browser_information_extra_list:p RPAR
+                                      {: RESULT = DeviceSummary.fromVendor(ven).setModel(mo).setType(x.change("tv")); :}
+                                ;
+
+vendors ::= LG:p
+          {: RESULT = p; :}
+        | PHILIPS:p
+          {: RESULT = p; :}
+        | literals_or_numbers_empty:p
+          {: RESULT = p; :}
+        ;
+
+system_and_browser_information_detail_end ::= BUILD DIV literals_or_numbers:vmo
+                              {: RESULT = vmo.sure(); :}
+                        | BUILD DIV UNKNOWN:vmo
+                            {: RESULT = vmo; :}
+                        | DIV literals_or_numbers:vmo
+                              {: RESULT = vmo.sure(); :}
+                        ;
+
+system_and_browser_information_literal ::= devices:p
+                                            {: RESULT= p; :}
+                                        | LGE
+                                        | LG
+                                        | WV
+                                        | CROS:p LITERAL:vmo NUMBER:vos
+                                            {: RESULT = DeviceSummary.fromOs(p).setVersionOs(vos.sure()); :}
+                                        | FREEBSD:p
+                                            {: RESULT = DeviceSummary.fromOs(p); :}
+                                        | VIERA:p
+                                            {: RESULT = DeviceSummary.fromOs(p).setVendor(p.change("panasonic")); :}
+                                        | NETCAST:p
+                                            {: RESULT = DeviceSummary.fromOs(p); :}
+                                        | LINUX:p literals_or_numbers_empty
+                                            {: RESULT = DeviceSummary.fromOs(p); :}
+                                        | LINUX:q DIV literals_or_numbers:p
+                                            {: RESULT = DeviceSummary.fromOs(q).setVersionOs(p); :}
+                                        | LINUX:q DIV SMARTTV:p
+                                            {: RESULT = DeviceSummary.fromOs(q).setType(p); :}
+                                        | LANGUAGE
+                                            {: RESULT = null; :}
+                                        | WINDOWS:q NT NUMBER:p
+                                             {: RESULT = DeviceSummary.fromOs(q).setVersionOs(p.sure()); :}
+                                        | WINDOWS:q NUMBER:p
+                                             {: RESULT = DeviceSummary.fromOs(q).setVersionOs(p.sure()); :}
+                                        | WINDOWS:q LITERAL:r NUMBER:p
+                                             {: RESULT = DeviceSummary.fromOs(q).setVersionOs(p.sure()); :}
+                                        | MSIE NUMBER:p
+                                             {: RESULT = null; :}
+                                        | WIN64:p
+                                             {: RESULT = DeviceSummary.fromOs(p.change("windows")); :}
+                                        | WOW64:p
+                                             {: RESULT = DeviceSummary.fromOs(p.change("windows")); :}
+                                        | X64
+                                             {: RESULT = null; :}
+                                        | WIN32:p
+                                             {: RESULT = DeviceSummary.fromOs(p.change("windows")); :}
+                                         | WEBOS:p
+                                             {: RESULT = DeviceSummary.fromOs(p); :}
+                                         | XBOX:p
+                                             {: RESULT = DeviceSummary.fromModel(p); :}
+                                         | XBOX:q LITERAL:p
+                                             {: RESULT = DeviceSummary.fromModel(q).setVersionHw(p.sure()); :}
+                                         | X11
+                                             {: RESULT = null; :}
+                                         | X32
+                                             {: RESULT = null; :}
+                                        | ANDROID:p NUMBER:vos
+                                            {: RESULT = DeviceSummary.fromOs(p).setVersionOs(vos.sure()); :}
+                                        | MOBILE
+                                            {: RESULT = null; :}
+                                        | TIZEN:q NUMBER:vos
+                                            {: RESULT = DeviceSummary.fromOs(q).setVersionOs(vos.sure()); :}
+                                        | error LITERAL
+                                        ;
+
+literals_or_numbers_detail ::= LITERAL:p
+                {: RESULT = p; :}
+            | NUMBER:p
+                {: RESULT = p; :}
+            ;
+
+literals    ::=  literals:p LITERAL:q
+                                {: RESULT = Yytoken.join(p,q); :}
+                | LITERAL:p
+                       {: RESULT = p; :}
+                    ;
+
+numbers    ::=  numbers:p NUMBER:q
+                                {: RESULT = Yytoken.join(p,q); :}
+                        | NUMBER:p
+                               {: RESULT = p; :}
+                    ;
+
+numbers_empty    ::=  NUMBER:p numbers_empty:q
+                          {: RESULT = Yytoken.join(p,q); :}
+                    |
+                          {: RESULT = null; :}
+                    ;
+
+
+literals_or_numbers    ::=  literals_or_numbers_detail:p literals_or_numbers:q
+                                {: RESULT = Yytoken.join(p,q); :}
+                        | literals_or_numbers_detail:p
+                               {: RESULT = p; :}
+                    ;
+
+literals_or_numbers_empty   ::=  literals_or_numbers_detail:p literals_or_numbers_empty:q
+                        {: RESULT = Yytoken.join(p,q); :}
+                |
+                    {: RESULT = null; :}
+                ;
+
+devices ::= IPAD:p
+               {:   isApple = true; RESULT = DeviceSummary.fromModel(p); :}
+         | IPHONE:p
+                        {: isApple = true; RESULT = DeviceSummary.fromModel(p); :}
+         | IPHONE:p OS NUMBER:vos
+                        {: isApple = true; RESULT = DeviceSummary.fromModel(p).setVersionOs(vos); :}
+         | TVOS:p NUMBER:vos
+                        {: isApple = true; RESULT =DeviceSummary.fromModel(p).setVersionOs(vos); :}
+         | IPOD:p
+                        {: isApple = true; RESULT = DeviceSummary.fromModel(p); :}
+         | CPU OS NUMBER:p LIKE MAC OS LITERAL
+                {:     isApple = true;  RESULT = new DeviceSummary("tablet", "apple", "ipad", null/*p*/, null, null);                :}
+         | CPU IPHONE OS NUMBER:p LIKE MAC OS LITERAL
+                {: isApple = true;    RESULT = new DeviceSummary("mobile", "apple", "iphone", null/*p*/, null, null);                :}
+         | IOS:p NUMBER:vos
+                {: isApple = true;                       RESULT = DeviceSummary.fromOs(p).setVersionOs(vos);               :}
+         | PLAYSTATION:p numbers_empty:vos
+                {:                        RESULT = DeviceSummary.fromModel(p).setVersionHw(vos);                :}
+         | MACINTOSH:p
+                {:      isApple = true;                   RESULT = DeviceSummary.fromModel(p);                :}
+         | LITERAL MAC OS LITERAL NUMBER:vos
+                {:                         RESULT = new DeviceSummary("pc", "apple", null, null, null, null).setVersionOs(vos);                :}
+         | DIRECTFB:p
+                {:                         RESULT = DeviceSummary.fromOs(p);                :}
+         | SMART_TV:p
+                {:                        RESULT = DeviceSummary.fromType(p.change("tv"));                :}
+         | APPLE_TV:p
+                {:            isApple = true;             RESULT = DeviceSummary.fromVendor(p.change("apple")).setType(p.change("tv"));                :}
+            ;
+
+custom_detail ::= CUSTOM:cli
+                  {: RESULT = cli; :}
+                //| MOLOTOV:cli
+                //  {: RESULT = cli; :}
+                ;
+
+custom_plugins ::= custom_detail:cli DIV literals_or_numbers:vmo DIV devices:dev DIV LITERAL COMMA NUMBER DIV NUMBER:vos
+                    {: RESULT = dev.setVendor(cli).setVersionHw(vmo).setVersionOs(vos); :}
+                | custom_detail:cli DIV literals_or_numbers:vmo DIV devices:dev DIV LITERAL COMMA NUMBER DIV NUMBER:vos DIV literals_or_numbers
+                    {: RESULT = dev.setVendor(cli).setVersionHw(vmo).setVersionOs(vos); :}
+                | APPLE_TV DIV literals_or_numbers IOS DIV literals_or_numbers APPLE_TV DIV literals_or_numbers:vos MODEL DIV LITERAL COMMA NUMBER BUILD DIV literals_or_numbers:vmo LPAR NUMBER DOT_COMMA LITERAL RPAR
+                   {: RESULT = new DeviceSummary("tv", "plex", null, null, vos.value.replace('_','.'), vmo.value); :}
+                | HARBOURFRONT DIV literals_or_numbers IOS DIV literals_or_numbers APPLE_TV DIV literals_or_numbers:vos MODEL DIV LITERAL COMMA literals_or_numbers DIV literals_or_numbers BUILD DIV literals_or_numbers:vmo LPAR NUMBER DOT_COMMA LITERAL RPAR
+                  {: RESULT = new DeviceSummary("tv", "plex", null, null, vos.value.replace('_','.'), vmo.value); :}
+                | MOLOTOV DIV NUMBER:vmo DIV devices:dev DIV LITERAL COMMA NUMBER DIV literals_or_numbers:vos
+                   {: RESULT = new DeviceSummary("tv", "molotov", null, null, vos.value.replace('_','.'), vmo.value); :}
+                | APPLE_TV DIV NUMBER:vmo DIV devices:dev DIV LITERAL COMMA NUMBER DIV literals_or_numbers:vos
+                   {: RESULT = new DeviceSummary("tv", "molotov", null, null, vos.value.replace('_','.'), vmo.value); :}
+                | EKIOH complete_anything:vos
+                   {: RESULT = new DeviceSummary(null, "EKIOH", null, null, null, vos.value.replace('_','.')); :}
+                | ROKU DIV literals_or_numbers:vmo LPAR literals_or_numbers:vos RPAR
+                   {: RESULT = new DeviceSummary(null, "ROKU", null, null, vmo.value.replace('_','.'), vos.value.replace('_','.')); :}
+                | VIAFREE DIV literals_or_numbers:vmo system_and_browser_information:de
+                   {: RESULT = new DeviceSummary(null, "VIAFREE", null, null, vmo.value.replace('_','.'), null).apply(de); :}
+                | VIAPLAY DIV literals_or_numbers:vmo system_and_browser_information:de
+                   {: RESULT = new DeviceSummary("mobile", "viaplay", "android", null, vmo.value.replace('_','.'), null).apply(de); :}
+//                | VIAPLAY DIV literals_or_numbers:vmo LPAR devices:dev DOT_COMMA LITERAL NUMBER:vos RPAR
+//                   {: RESULT = new DeviceSummary(null, "viaplay", null, vmo.replace('_','.'), vos.replace('_','.')).apply(dev); :}
+                | UNIREST_JAVA DIV literals_or_numbers:vos
+                   {: RESULT = new DeviceSummary(null, "unirest", null, null, null, vos.value.replace('_','.')); :}
+                | HLNAPP DIV literals_or_numbers:vos user_agent_common:ex DEVICEUID literals_or_numbers
+                   {: RESULT = new DeviceSummary(null, "hlnapp", null, null, null, vos.value.replace('_','.')).apply(ex); :}
+                | NUC:p
+                   {: RESULT =  DeviceSummary.fromType(p); :}
+                ;
+
+extension ::= APPLEWEBKIT DIV NUMBER
+                | literals DIV NUMBER
+                | GECKO DIV NUMBER
+                | FIREFOX DIV NUMBER
+                | CHROME DIV NUMBER
+                | literals SAFARI DIV NUMBER
+                | SAFARI DIV NUMBER
+                | SMARTTV SAFARI DIV NUMBER
+                | MOLOTOV DIV NUMBER
+                | VIERA DIV NUMBER
+                | GLBMOBAPP_IOS DIV NUMBER DIV NUMBER
+                | GEMOBAPP_IOS DIV NUMBER DIV NUMBER
+                | GSHOWMOBAPP_IOS DIV NUMBER DIV NUMBER
+                | ELECTRON DIV NUMBER
+                | SONY:p CATEGORY DIV LITERAL:vmo LITERAL:vos
+                    {: RESULT = DeviceSummary.fromVendor(p).setType(p.change("tv")).setModel(vmo).setVersionHw(vos); :}
+                | SMARTTV:p DIV NUMBER
+                    {: RESULT = DeviceSummary.fromType(p.change("tv")); :}
+                | MODEL DIV literals_or_numbers:vmo
+                    {: RESULT = DeviceSummary.fromModel(vmo); :}
+                | MOBILE DIV NUMBER:vmo
+                    {: RESULT = isApple ? DeviceSummary.fromVersionHw(vmo) : null; :} // APPLE HW VERSION
+                | MOBILE SAFARI DIV NUMBER:vmo
+                    {: RESULT = null; :}
+                | TV:p SAFARI DIV NUMBER:vmo
+                    {: RESULT = DeviceSummary.fromType(p); :}
+                | VERSION DIV NUMBER:vos
+                    {: RESULT = null; /*DeviceSummary.fromVersionOs(vos);*/ :}
+                | CRKEY:p DIV NUMBER:vos
+                    {: RESULT = DeviceSummary.fromOs(p).setVersionOs(vos); :}
+                | LG:p BROWSER DIV literals_or_numbers:vos
+                    {: RESULT = DeviceSummary.fromVendor(p).setType(p.change("tv")).setVersionOs(vos); :}
+                | DOT_COMMA literals_or_numbers
+                | DOT_COMMA LG literals_or_numbers
+                | DOT_COMMA LG literals_or_numbers DIV literals_or_numbers
+                | LG literals_or_numbers
+                | LG literals_or_numbers DIV literals_or_numbers
+                | DOT_COMMA XDKANDROIDWEBVIEW:x DIV NUMBER DIV LITERAL DOT_COMMA PHILIPS DOT_COMMA PHILIPS DIV LITERAL:de DIV LITERAL DIV LITERAL:vmo DIV NUMBER
+                    {: RESULT = DeviceSummary.fromVendor(x.change("philips")).setType(x.change("tv")).setModel(de).setVersionHw(vmo); :}
+                ;
+
+platform_information ::= LPAR platform_details:p RPAR
+                            {: RESULT = p; :}
+                        |
+                        ;
+
+platform_details ::= platform_detail:p platform_details:q
+                    {: RESULT = p != null ? p.apply(q) : q; :}
+                    |
+                    ;
+
+platform_detail ::= LITERAL | NUMBER
+                | LIKE
+                | GECKO
+                | COMMA
+                | DOT_COMMA
+                | LG
+                | LGE
+                | error RPAR
+                    ;
+
+extensions ::= extension:q platform_information:pi extensions:p
+                    {: RESULT = q != null ? q.apply(pi).apply(p) : pi != null ? pi.apply(p) : p; :}
+                |
+                | rubishs
+                ;
+/*
+FB_IAB: Facebook In-App Browser (followed by a version)
+FBAV: Facebook App Version (followed by a version)
+wv : webview
+*/
+
+rubishs ::=       LIKE GECKO
+                | LPARS rubishs_details:p
+                    {: RESULT = p; :}
+                | LPARS rubishs_details:p RPARS
+                    {: RESULT = p; :}
+                | LPARS rubishs_details:p RPARS rubishs
+                    {: RESULT = p; :}
+                | LPARS rubishs_details:p RPARS DOT_COMMA rubishs
+                    {: RESULT = p; :}
+                | LITERAL
+                | NUMBER
+                | DIV LITERAL
+                | error
+                ;
+
+rubishs_detail ::= DIV | NUMBER| LITERAL | LANGUAGE | IPAD | IPHONE | IOS | COMMA | DOT_COMMA
+                | LG:p
+                    {: RESULT = DeviceSummary.fromVendor(p); :}
+                | PHILIPS:p
+                    {: RESULT = DeviceSummary.fromVendor(p); :}
+                ;
+
+rubishs_details ::= rubishs_detail:p rubishs_details
+                    {: RESULT = p; :}
+                | rubishs_detail:p
+                    {: RESULT = p; :}
+                ;
+
+
+
+
+complete_anything ::=
+            LPAR:p complete_anything:q
+                                {: RESULT = Yytoken.join(p,q); :}
+            | RPAR:p complete_anything:q
+                                {: RESULT = Yytoken.join(p,q); :}
+            | DOT_COMMA:p complete_anything:q
+                                {: RESULT = Yytoken.join(p,q); :}
+             | LINUX:p complete_anything:q
+                                {: RESULT = Yytoken.join(p,q); :}
+             | ANDROID:p  complete_anything:q
+                                {: RESULT = Yytoken.join(p,q); :}
+             | BUILD:p  complete_anything:q
+                                {: RESULT = Yytoken.join(p,q); :}
+             | LITERAL:p  complete_anything:q
+                                {: RESULT = Yytoken.join(p,q); :}
+             | NUMBER:p  complete_anything:q
+                                {: RESULT = Yytoken.join(p,q); :}
+             | GECKO:p complete_anything:q
+                                {: RESULT = Yytoken.join(p,q); :}
+                                 |
+             | error LITERAL
+             ;
+
+
